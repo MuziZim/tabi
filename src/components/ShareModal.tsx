@@ -40,7 +40,7 @@ export function ShareModal({ tripId, onClose }: ShareModalProps) {
 
     try {
       // Look up user by email — they must have signed in at least once
-      const { data: users } = await supabase
+      const { data: _users } = await supabase
         .from('trip_members')
         .select('user_id')
         .eq('trip_id', tripId);

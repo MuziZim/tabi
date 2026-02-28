@@ -14,9 +14,9 @@ import {
 } from '@dnd-kit/sortable';
 import {
   ArrowLeft, ChevronLeft, ChevronRight, Calendar,
-  Wifi, WifiOff, UserPlus
+  WifiOff, UserPlus
 } from 'lucide-react';
-import type { Trip, TripDay, ItineraryItem, ItemCategory } from '../lib/types';
+import type { Trip, TripDay, ItemCategory } from '../lib/types';
 import { useTripDays, useItems } from '../hooks/useTrip';
 import { formatDate, formatDateLong, getDayNumber, formatCurrency, reorderArray } from '../lib/utils';
 import { isOnline } from '../lib/offline';
