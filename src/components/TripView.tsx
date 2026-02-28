@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -36,12 +36,16 @@ export function TripView({ trip, onBack }: TripViewProps) {
   const [showShare, setShowShare] = useState(false);
 
   // Track connectivity
-  useState(() => {
+  useEffect(() => {
     const handleOnline = () => setOnline(true);
     const handleOffline = () => setOnline(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-  });
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const currentDay = days[selectedDayIndex];
 
@@ -104,6 +108,7 @@ export function TripView({ trip, onBack }: TripViewProps) {
           <DayContent
             day={currentDay}
             tripStart={trip.start_date}
+            tripCurrency={trip.currency || 'JPY'}
           />
         ) : (
           <div className="text-center py-20 text-sumi-muted text-sm">
@@ -181,7 +186,7 @@ function DayNav({
 
 // ---- Day Content with Drag & Drop ----
 
-function DayContent({ day, tripStart }: { day: TripDay; tripStart: string }) {
+function DayContent({ day, tripStart, tripCurrency }: { day: TripDay; tripStart: string; tripCurrency: string }) {
   const { items, loading, addItem, updateItem, deleteItem, reorderItems } = useItems(day.id);
 
   const sensors = useSensors(
@@ -215,9 +220,9 @@ function DayContent({ day, tripStart }: { day: TripDay; tripStart: string }) {
       start_time?: string | null;
       location_name?: string | null;
     }) => {
-      await addItem(item);
+      await addItem({ ...item, currency: tripCurrency });
     },
-    [addItem]
+    [addItem, tripCurrency]
   );
 
   // Daily cost summary
@@ -267,6 +272,7 @@ function DayContent({ day, tripStart }: { day: TripDay; tripStart: string }) {
                   <ItemCard
                     key={item.id}
                     item={item}
+                    tripCurrency={tripCurrency}
                     onUpdate={updateItem}
                     onDelete={deleteItem}
                   />
@@ -292,7 +298,7 @@ function DayContent({ day, tripStart }: { day: TripDay; tripStart: string }) {
             <div className="mt-4 pt-3 border-t border-cream-dark/50 flex justify-between items-center">
               <span className="text-xs text-sumi-muted">Estimated cost</span>
               <span className="text-sm font-medium text-sumi">
-                {formatCurrency(totalCost, 'JPY')}
+                {formatCurrency(totalCost, tripCurrency)}
               </span>
             </div>
           )}

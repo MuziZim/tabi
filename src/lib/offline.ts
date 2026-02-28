@@ -85,3 +85,55 @@ export async function clearAllCache() {
     }
   }
 }
+
+// ---- Mutation Queue Flush (sync offline changes when back online) ----
+
+export async function flushMutationQueue(
+  supabase: { from: (table: string) => unknown }
+): Promise<{ flushed: number; failed: number }> {
+  const queue = await getQueuedMutations();
+  if (queue.length === 0) return { flushed: 0, failed: 0 };
+
+  let flushed = 0;
+  let failed = 0;
+
+  for (const mutation of queue) {
+    try {
+      const table = supabase.from(mutation.table) as Record<string, (...args: unknown[]) => { eq?: (...args: unknown[]) => unknown }>;
+
+      switch (mutation.type) {
+        case 'insert': {
+          const { error } = await (table.insert as (payload: unknown) => Promise<{ error: unknown }>)(mutation.payload);
+          if (error) throw error;
+          break;
+        }
+        case 'update': {
+          const { id, ...updates } = mutation.payload;
+          const { error } = await (table.update as (updates: unknown) => { eq: (col: string, val: unknown) => Promise<{ error: unknown }> })(updates).eq('id', id);
+          if (error) throw error;
+          break;
+        }
+        case 'delete': {
+          const { error } = await (table.delete as () => { eq: (col: string, val: unknown) => Promise<{ error: unknown }> })().eq('id', mutation.payload.id);
+          if (error) throw error;
+          break;
+        }
+        case 'reorder': {
+          const items = mutation.payload.items as Array<{ id: string; sort_order: number }>;
+          for (const item of items) {
+            await (table.update as (updates: unknown) => { eq: (col: string, val: unknown) => Promise<{ error: unknown }> })({ sort_order: item.sort_order }).eq('id', item.id);
+          }
+          break;
+        }
+      }
+
+      await removeMutation(mutation.id);
+      flushed++;
+    } catch {
+      failed++;
+      // Leave failed mutations in the queue for next attempt
+    }
+  }
+
+  return { flushed, failed };
+}

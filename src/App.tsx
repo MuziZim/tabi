@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { useTrips } from './hooks/useTrip';
 import { supabase } from './lib/supabase';
+import { flushMutationQueue, onConnectivityChange } from './lib/offline';
 import type { Trip } from './lib/types';
 import { AuthScreen } from './components/AuthScreen';
 import { TripList } from './components/TripList';
@@ -12,6 +13,18 @@ export default function App() {
   const { trips, loading: tripsLoading, createTrip, updateTrip, deleteTrip } = useTrips(user?.id);
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
+
+  // Flush offline mutation queue when connectivity returns
+  useEffect(() => {
+    return onConnectivityChange(async (online) => {
+      if (online) {
+        const { flushed, failed } = await flushMutationQueue(supabase as never);
+        if (flushed > 0) {
+          console.log(`Synced ${flushed} offline change(s)${failed > 0 ? `, ${failed} failed` : ''}`);
+        }
+      }
+    });
+  }, []);
 
   // Load selected trip details
   useEffect(() => {

@@ -19,6 +19,7 @@ create table public.trips (
   end_date date not null,
   timezone text not null default 'Asia/Tokyo',
   cover_emoji text default '✈️',
+  currency text not null default 'JPY',
   created_by uuid references auth.users(id) not null,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
@@ -274,3 +275,10 @@ alter publication supabase_realtime add table public.trip_days;
 -- This is intentional — the MCP server authenticates via API key
 -- and is trusted to access trip data.
 -- Keep the service_role key SECRET. Never expose it in the frontend.
+
+-- ============================================
+-- MIGRATIONS (run manually if upgrading)
+-- ============================================
+
+-- v1.1: Add currency to trips (default JPY for existing trips)
+-- ALTER TABLE public.trips ADD COLUMN IF NOT EXISTS currency text NOT NULL DEFAULT 'JPY';

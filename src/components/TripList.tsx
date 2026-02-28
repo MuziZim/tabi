@@ -16,11 +16,13 @@ interface TripListProps {
     start_date: string;
     end_date: string;
     cover_emoji?: string;
+    currency?: string;
   }) => Promise<Trip | null>;
   onUpdateTrip: (tripId: string, updates: {
     name: string;
     destination?: string;
     cover_emoji?: string;
+    currency?: string;
   }) => Promise<void>;
   onDeleteTrip: (tripId: string) => Promise<void>;
   onSignOut: () => void;
@@ -121,7 +123,7 @@ export function TripList({ trips, loading, userEmail, onSelectTrip, onCreateTrip
                         setEditingTrip(trip);
                       }}
                       className="p-1.5 text-sumi-muted/30 hover:text-sumi-muted rounded-lg
-                        hover:bg-cream transition-colors opacity-0 group-hover:opacity-100"
+                        hover:bg-cream transition-colors sm:opacity-0 sm:group-hover:opacity-100"
                       title="Edit trip"
                     >
                       <MoreVertical size={16} />

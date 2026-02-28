@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { X, Trash2 } from 'lucide-react';
 import type { Trip } from '../lib/types';
+import { COMMON_CURRENCIES } from '../lib/types';
 
 interface EditTripModalProps {
   trip: Trip;
@@ -9,6 +10,7 @@ interface EditTripModalProps {
     name: string;
     destination?: string;
     cover_emoji?: string;
+    currency?: string;
   }) => Promise<void>;
   onDelete: (tripId: string) => Promise<void>;
 }
@@ -19,6 +21,7 @@ export function EditTripModal({ trip, onClose, onUpdate, onDelete }: EditTripMod
   const [name, setName] = useState(trip.name);
   const [destination, setDestination] = useState(trip.destination || '');
   const [emoji, setEmoji] = useState(trip.cover_emoji);
+  const [currency, setCurrency] = useState(trip.currency || 'JPY');
   const [loading, setLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -29,6 +32,7 @@ export function EditTripModal({ trip, onClose, onUpdate, onDelete }: EditTripMod
       name,
       destination: destination || undefined,
       cover_emoji: emoji,
+      currency,
     });
     setLoading(false);
     onClose();
@@ -96,6 +100,20 @@ export function EditTripModal({ trip, onClose, onUpdate, onDelete }: EditTripMod
               className="mt-1.5 w-full px-4 py-2.5 rounded-xl border border-cream-dark bg-cream/50
                 text-sumi text-sm focus:outline-none focus:ring-2 focus:ring-indigo/20 focus:border-indigo"
             />
+          </label>
+
+          <label className="block">
+            <span className="text-xs font-medium text-sumi-light uppercase tracking-wider">Currency</span>
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              className="mt-1.5 w-full px-4 py-2.5 rounded-xl border border-cream-dark bg-cream/50
+                text-sumi text-sm focus:outline-none focus:ring-2 focus:ring-indigo/20 focus:border-indigo"
+            >
+              {COMMON_CURRENCIES.map((c) => (
+                <option key={c.code} value={c.code}>{c.label}</option>
+              ))}
+            </select>
           </label>
 
           <div className="flex gap-2 pt-2">

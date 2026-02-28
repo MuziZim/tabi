@@ -6,6 +6,7 @@ export interface Trip {
   end_date: string;
   timezone: string;
   cover_emoji: string;
+  currency: string;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -80,3 +81,16 @@ export const STATUS_CONFIG: Record<ItemStatus, { label: string; icon: string }> 
   done: { label: 'Done', icon: 'check-circle-2' },
   skipped: { label: 'Skipped', icon: 'circle-x' },
 };
+
+export const COMMON_CURRENCIES = [
+  { code: 'JPY', label: '¥ JPY', symbol: '¥' },
+  { code: 'USD', label: '$ USD', symbol: '$' },
+  { code: 'EUR', label: '€ EUR', symbol: '€' },
+  { code: 'GBP', label: '£ GBP', symbol: '£' },
+  { code: 'ZAR', label: 'R ZAR', symbol: 'R' },
+  { code: 'THB', label: '฿ THB', symbol: '฿' },
+  { code: 'KRW', label: '₩ KRW', symbol: '₩' },
+  { code: 'AUD', label: 'A$ AUD', symbol: 'A$' },
+  { code: 'CAD', label: 'C$ CAD', symbol: 'C$' },
+  { code: 'SGD', label: 'S$ SGD', symbol: 'S$' },
+];

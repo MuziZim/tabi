@@ -28,6 +28,7 @@ export function useTrips(userId: string | undefined) {
     end_date: string;
     timezone?: string;
     cover_emoji?: string;
+    currency?: string;
   }) => {
     if (!userId) return null;
     const { data, error } = await supabase
@@ -44,6 +45,7 @@ export function useTrips(userId: string | undefined) {
     name?: string;
     destination?: string;
     cover_emoji?: string;
+    currency?: string;
   }) => {
     const { error } = await supabase
       .from('trips')
@@ -256,63 +258,4 @@ export function useItems(dayId: string | undefined) {
   };
 
   return { items, loading, addItem, updateItem, deleteItem, reorderItems, refreshItems: fetchItems };
-}
-
-export function useAllTripItems(tripId: string | undefined, days: TripDay[]) {
-  const [itemsByDay, setItemsByDay] = useState<Record<string, ItineraryItem[]>>({});
-  const [loading, setLoading] = useState(true);
-
-  const fetchAllItems = useCallback(async () => {
-    if (!tripId || days.length === 0) return;
-
-    const dayIds = days.map((d) => d.id);
-    const { data } = await supabase
-      .from('itinerary_items')
-      .select('*')
-      .in('day_id', dayIds)
-      .order('sort_order', { ascending: true })
-      .order('start_time', { ascending: true, nullsFirst: false });
-
-    if (data) {
-      const grouped: Record<string, ItineraryItem[]> = {};
-      for (const day of days) {
-        grouped[day.id] = data.filter((item) => item.day_id === day.id);
-      }
-      setItemsByDay(grouped);
-    }
-    setLoading(false);
-  }, [tripId, days]);
-
-  useEffect(() => {
-    fetchAllItems();
-  }, [fetchAllItems]);
-
-  // Real-time: listen for any item changes across all days
-  useEffect(() => {
-    if (!tripId || days.length === 0) return;
-
-    const channels = days.map((day) =>
-      supabase
-        .channel(`all_items:${day.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'itinerary_items',
-            filter: `day_id=eq.${day.id}`,
-          },
-          () => {
-            fetchAllItems();
-          }
-        )
-        .subscribe()
-    );
-
-    return () => {
-      channels.forEach((ch) => supabase.removeChannel(ch));
-    };
-  }, [tripId, days, fetchAllItems]);
-
-  return { itemsByDay, loading, refreshAllItems: fetchAllItems };
 }

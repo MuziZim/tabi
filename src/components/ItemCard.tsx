@@ -12,6 +12,7 @@ import { formatTime24, formatCurrency, getCategoryEmoji, cn } from '../lib/utils
 
 interface ItemCardProps {
   item: ItineraryItem;
+  tripCurrency: string;
   onUpdate: (id: string, updates: Partial<ItineraryItem>) => void;
   onDelete: (id: string) => void;
 }
@@ -37,7 +38,7 @@ const nextStatus: Record<ItemStatus, ItemStatus> = {
   skipped: 'planned',
 };
 
-export function ItemCard({ item, onUpdate, onDelete }: ItemCardProps) {
+export function ItemCard({ item, tripCurrency, onUpdate, onDelete }: ItemCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(item.title);
@@ -228,7 +229,7 @@ export function ItemCard({ item, onUpdate, onDelete }: ItemCardProps) {
 
             {/* Cost */}
             <label className="block">
-              <span className="text-sumi-muted uppercase tracking-wider text-[10px] font-medium">Cost (JPY)</span>
+              <span className="text-sumi-muted uppercase tracking-wider text-[10px] font-medium">Cost ({tripCurrency})</span>
               <input
                 type="number"
                 value={item.cost_estimate || ''}

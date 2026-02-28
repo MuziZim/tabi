@@ -91,7 +91,10 @@ function formatItemForDisplay(item: Record<string, unknown>): string {
   parts.push(item.title as string);
   if (item.location_name) parts.push(`@ ${item.location_name}`);
   if (item.status !== 'planned') parts.push(`[${item.status}]`);
-  if (item.cost_estimate) parts.push(`¥${item.cost_estimate}`);
+  if (item.cost_estimate) {
+    const currency = (item.currency as string) || 'JPY';
+    parts.push(`${currency} ${item.cost_estimate}`);
+  }
   return parts.join(' — ');
 }
 
@@ -375,7 +378,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         let overview = `# ${trip.cover_emoji} ${trip.name}\n`;
         overview += `Destination: ${trip.destination || 'Not set'}\n`;
         overview += `Dates: ${trip.start_date} → ${trip.end_date}\n`;
-        overview += `Timezone: ${trip.timezone}\n\n`;
+        overview += `Timezone: ${trip.timezone}\n`;
+        overview += `Currency: ${trip.currency || 'JPY'}\n\n`;
 
         if (days) {
           for (const day of days) {
@@ -443,7 +447,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             if (item.location_name) text += `  Location: ${item.location_name}\n`;
             if (item.location_address) text += `  Address: ${item.location_address}\n`;
             if (item.notes) text += `  Notes: ${item.notes}\n`;
-            if (item.cost_estimate) text += `  Cost: ¥${item.cost_estimate}\n`;
+            if (item.cost_estimate) text += `  Cost: ${item.currency || 'JPY'} ${item.cost_estimate}\n`;
             if (item.booking_ref) text += `  Booking: ${item.booking_ref}\n`;
             if (item.url) text += `  URL: ${item.url}\n`;
             text += '\n';
@@ -478,13 +482,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         const nextSort = existing && existing.length > 0 ? existing[0].sort_order + 1 : 0;
 
+        // Get trip currency for default
+        const { data: tripData } = await supabase
+          .from('trips')
+          .select('currency')
+          .eq('id', tripId)
+          .single();
+
         const newItem: Record<string, unknown> = {
           day_id: day.id,
           title: args?.title,
           category: args?.category || 'activity',
           status: 'planned',
           sort_order: nextSort,
-          currency: 'JPY',
+          currency: tripData?.currency || 'JPY',
         };
 
         // Optional fields

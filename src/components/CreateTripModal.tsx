@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { X } from 'lucide-react';
+import { COMMON_CURRENCIES } from '../lib/types';
 
 interface CreateTripModalProps {
   onClose: () => void;
@@ -9,6 +10,7 @@ interface CreateTripModalProps {
     start_date: string;
     end_date: string;
     cover_emoji?: string;
+    currency?: string;
   }) => Promise<void>;
 }
 
@@ -20,6 +22,7 @@ export function CreateTripModal({ onClose, onCreate }: CreateTripModalProps) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [emoji, setEmoji] = useState('⛩️');
+  const [currency, setCurrency] = useState('JPY');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -31,6 +34,7 @@ export function CreateTripModal({ onClose, onCreate }: CreateTripModalProps) {
       start_date: startDate,
       end_date: endDate,
       cover_emoji: emoji,
+      currency,
     });
     setLoading(false);
   };
@@ -78,17 +82,32 @@ export function CreateTripModal({ onClose, onCreate }: CreateTripModalProps) {
             />
           </label>
 
-          <label className="block">
-            <span className="text-xs font-medium text-sumi-light uppercase tracking-wider">Destination</span>
-            <input
-              type="text"
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-              placeholder="Japan"
-              className="mt-1.5 w-full px-4 py-2.5 rounded-xl border border-cream-dark bg-cream/50
-                text-sumi text-sm focus:outline-none focus:ring-2 focus:ring-indigo/20 focus:border-indigo"
-            />
-          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="text-xs font-medium text-sumi-light uppercase tracking-wider">Currency</span>
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                className="mt-1.5 w-full px-4 py-2.5 rounded-xl border border-cream-dark bg-cream/50
+                  text-sumi text-sm focus:outline-none focus:ring-2 focus:ring-indigo/20 focus:border-indigo"
+              >
+                {COMMON_CURRENCIES.map((c) => (
+                  <option key={c.code} value={c.code}>{c.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-xs font-medium text-sumi-light uppercase tracking-wider">Destination</span>
+              <input
+                type="text"
+                value={destination}
+                onChange={(e) => setDestination(e.target.value)}
+                placeholder="Japan"
+                className="mt-1.5 w-full px-4 py-2.5 rounded-xl border border-cream-dark bg-cream/50
+                  text-sumi text-sm focus:outline-none focus:ring-2 focus:ring-indigo/20 focus:border-indigo"
+              />
+            </label>
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
