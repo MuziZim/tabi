@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { LogOut, Plus, MapPin, Calendar } from 'lucide-react';
+import { LogOut, Plus, MapPin, Calendar, MoreVertical } from 'lucide-react';
 import type { Trip } from '../lib/types';
 import { formatDate } from '../lib/utils';
 import { CreateTripModal } from './CreateTripModal';
+import { EditTripModal } from './EditTripModal';
 
 interface TripListProps {
   trips: Trip[];
@@ -16,11 +17,18 @@ interface TripListProps {
     end_date: string;
     cover_emoji?: string;
   }) => Promise<Trip | null>;
+  onUpdateTrip: (tripId: string, updates: {
+    name: string;
+    destination?: string;
+    cover_emoji?: string;
+  }) => Promise<void>;
+  onDeleteTrip: (tripId: string) => Promise<void>;
   onSignOut: () => void;
 }
 
-export function TripList({ trips, loading, userEmail, onSelectTrip, onCreateTrip, onSignOut }: TripListProps) {
+export function TripList({ trips, loading, userEmail, onSelectTrip, onCreateTrip, onUpdateTrip, onDeleteTrip, onSignOut }: TripListProps) {
   const [showCreate, setShowCreate] = useState(false);
+  const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
 
   return (
     <div className="min-h-screen bg-cream">
@@ -76,16 +84,23 @@ export function TripList({ trips, loading, userEmail, onSelectTrip, onCreateTrip
 
             <div className="space-y-3">
               {trips.map((trip, i) => (
-                <button
+                <div
                   key={trip.id}
-                  onClick={() => onSelectTrip(trip.id)}
-                  className="w-full bg-white rounded-2xl p-5 shadow-card hover:shadow-card-hover
-                    transition-all text-left group animate-slide-up"
+                  className="bg-white rounded-2xl p-5 shadow-card hover:shadow-card-hover
+                    transition-all group animate-slide-up"
                   style={{ animationDelay: `${i * 60}ms` }}
                 >
                   <div className="flex items-start gap-4">
-                    <div className="text-3xl">{trip.cover_emoji}</div>
-                    <div className="flex-1 min-w-0">
+                    <button
+                      onClick={() => onSelectTrip(trip.id)}
+                      className="text-3xl"
+                    >
+                      {trip.cover_emoji}
+                    </button>
+                    <button
+                      onClick={() => onSelectTrip(trip.id)}
+                      className="flex-1 min-w-0 text-left"
+                    >
                       <h3 className="font-display text-lg text-sumi group-hover:text-indigo transition-colors">
                         {trip.name}
                       </h3>
@@ -99,12 +114,20 @@ export function TripList({ trips, loading, userEmail, onSelectTrip, onCreateTrip
                         <Calendar size={12} />
                         {formatDate(trip.start_date)} — {formatDate(trip.end_date)}
                       </div>
-                    </div>
-                    <div className="text-sumi-muted/40 group-hover:text-indigo/40 transition-colors text-lg">
-                      →
-                    </div>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingTrip(trip);
+                      }}
+                      className="p-1.5 text-sumi-muted/30 hover:text-sumi-muted rounded-lg
+                        hover:bg-cream transition-colors opacity-0 group-hover:opacity-100"
+                      title="Edit trip"
+                    >
+                      <MoreVertical size={16} />
+                    </button>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           </>
@@ -117,6 +140,18 @@ export function TripList({ trips, loading, userEmail, onSelectTrip, onCreateTrip
           onCreate={async (trip) => {
             await onCreateTrip(trip);
             setShowCreate(false);
+          }}
+        />
+      )}
+
+      {editingTrip && (
+        <EditTripModal
+          trip={editingTrip}
+          onClose={() => setEditingTrip(null)}
+          onUpdate={onUpdateTrip}
+          onDelete={async (tripId) => {
+            await onDeleteTrip(tripId);
+            setEditingTrip(null);
           }}
         />
       )}

@@ -40,7 +40,31 @@ export function useTrips(userId: string | undefined) {
     return data;
   };
 
-  return { trips, loading, createTrip, refreshTrips: fetchTrips };
+  const updateTrip = async (tripId: string, updates: {
+    name?: string;
+    destination?: string;
+    cover_emoji?: string;
+  }) => {
+    const { error } = await supabase
+      .from('trips')
+      .update(updates)
+      .eq('id', tripId);
+    if (error) throw error;
+    setTrips((prev) =>
+      prev.map((t) => (t.id === tripId ? { ...t, ...updates } : t))
+    );
+  };
+
+  const deleteTrip = async (tripId: string) => {
+    const { error } = await supabase
+      .from('trips')
+      .delete()
+      .eq('id', tripId);
+    if (error) throw error;
+    setTrips((prev) => prev.filter((t) => t.id !== tripId));
+  };
+
+  return { trips, loading, createTrip, updateTrip, deleteTrip, refreshTrips: fetchTrips };
 }
 
 export function useTripDays(tripId: string | undefined) {

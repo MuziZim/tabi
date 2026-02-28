@@ -9,7 +9,7 @@ import { TripView } from './components/TripView';
 
 export default function App() {
   const { user, loading: authLoading, signInWithMagicLink, signOut } = useAuth();
-  const { trips, loading: tripsLoading, createTrip } = useTrips(user?.id);
+  const { trips, loading: tripsLoading, createTrip, updateTrip, deleteTrip } = useTrips(user?.id);
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
 
@@ -70,6 +70,11 @@ export default function App() {
       userEmail={user.email || ''}
       onSelectTrip={setSelectedTripId}
       onCreateTrip={createTrip}
+      onUpdateTrip={updateTrip}
+      onDeleteTrip={async (tripId) => {
+        await deleteTrip(tripId);
+        setSelectedTripId(null);
+      }}
       onSignOut={signOut}
     />
   );
