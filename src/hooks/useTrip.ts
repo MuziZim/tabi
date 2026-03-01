@@ -71,7 +71,7 @@ export function useTrips(userId: string | undefined) {
 
     if (error) {
       console.error('createTrip error:', error);
-      throw error;
+      throw new Error(error.message);
     }
 
     await fetchTrips();
