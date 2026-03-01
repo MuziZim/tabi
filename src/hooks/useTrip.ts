@@ -51,7 +51,17 @@ export function useTrips(userId: string | undefined) {
     if (!userId) return null;
 
     const timezone = trip.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Tokyo';
-    const tripPayload = { ...trip, timezone, created_by: userId };
+    // Build payload explicitly to avoid sending unexpected fields.
+    const tripPayload: Record<string, unknown> = {
+      name: trip.name,
+      start_date: trip.start_date,
+      end_date: trip.end_date,
+      timezone,
+      created_by: userId,
+    };
+    if (trip.destination) tripPayload.destination = trip.destination;
+    if (trip.cover_emoji) tripPayload.cover_emoji = trip.cover_emoji;
+    if (trip.currency) tripPayload.currency = trip.currency;
 
     if (!isOnline()) {
       await queueMutation({
@@ -63,15 +73,22 @@ export function useTrips(userId: string | undefined) {
     }
 
     // Avoid chaining `.select().single()` here: in some Supabase/RLS setups
-    // the insert succeeds but the immediate select fails, which surfaces a false
-    // "Failed to create trip" error in the modal.
+    // the insert succeeds but the immediate select fails, which surfaces a
+    // false "Failed to create trip" error in the modal.
     const { error } = await supabase
       .from('trips')
       .insert(tripPayload);
 
     if (error) {
-      console.error('createTrip error:', error);
-      throw new Error(error.message);
+      // The `currency` column was added in v1.1 and may not exist yet in the
+      // deployed database.  If the insert failed (PostgREST 400 for unknown
+      // column), retry without `currency` — it defaults to 'JPY'.
+      const { currency: _, ...safePayload } = tripPayload;
+      const retry = await supabase.from('trips').insert(safePayload);
+      if (retry.error) {
+        console.error('createTrip error:', retry.error);
+        throw new Error(retry.error.message);
+      }
     }
 
     await fetchTrips();
