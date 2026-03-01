@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { X } from 'lucide-react';
 import { COMMON_CURRENCIES } from '../lib/types';
+import { formatErrorMessage } from '../lib/errors';
 
 interface CreateTripModalProps {
   onClose: () => void;
@@ -56,7 +57,7 @@ export function CreateTripModal({ onClose, onCreate }: CreateTripModalProps) {
         currency,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Something went wrong';
+      const message = formatErrorMessage(err);
       console.error('Create trip error:', err);
       setError(`Failed to create trip: ${message}`);
       setLoading(false);
