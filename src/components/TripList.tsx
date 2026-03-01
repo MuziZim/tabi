@@ -129,11 +129,11 @@ export function TripList({ trips, loading, userEmail, onSelectTrip, onCreateTrip
                           e.stopPropagation();
                           setMenuTripId(menuTripId === trip.id ? null : trip.id);
                         }}
-                        className="p-1.5 text-sumi-muted/30 hover:text-sumi-muted rounded-lg
-                          hover:bg-cream transition-colors sm:opacity-0 sm:group-hover:opacity-100"
+                        className="p-2 text-sumi-muted hover:text-sumi rounded-lg
+                          hover:bg-cream transition-colors"
                         title="Trip options"
                       >
-                        <MoreVertical size={16} />
+                        <MoreVertical size={18} />
                       </button>
 
                       {/* Context menu */}
