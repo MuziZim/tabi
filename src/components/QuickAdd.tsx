@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useRef, type FormEvent } from 'react';
 import { Plus, X } from 'lucide-react';
 import type { ItemCategory } from '../lib/types';
 import { CATEGORIES } from '../lib/types';
@@ -19,6 +19,7 @@ export function QuickAdd({ onAdd }: QuickAddProps) {
   const [category, setCategory] = useState<ItemCategory>('activity');
   const [time, setTime] = useState('');
   const [location, setLocation] = useState('');
+  const titleRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -29,10 +30,12 @@ export function QuickAdd({ onAdd }: QuickAddProps) {
       start_time: time || null,
       location_name: location || null,
     });
+    // Keep form open — just reset fields for quick batch entry
     setTitle('');
     setTime('');
     setLocation('');
-    setOpen(false);
+    // Re-focus the title input for the next item
+    setTimeout(() => titleRef.current?.focus(), 0);
   };
 
   if (!open) {
@@ -67,6 +70,7 @@ export function QuickAdd({ onAdd }: QuickAddProps) {
 
       {/* Title */}
       <input
+        ref={titleRef}
         type="text"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
@@ -114,14 +118,24 @@ export function QuickAdd({ onAdd }: QuickAddProps) {
         />
       </div>
 
-      <button
-        type="submit"
-        disabled={!title.trim()}
-        className="w-full py-2 rounded-lg bg-indigo text-white text-xs font-medium
-          hover:bg-indigo-dark transition-colors disabled:opacity-40"
-      >
-        Add to itinerary
-      </button>
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={!title.trim()}
+          className="flex-1 py-2 rounded-lg bg-indigo text-white text-xs font-medium
+            hover:bg-indigo-dark transition-colors disabled:opacity-40"
+        >
+          Add to itinerary
+        </button>
+        <button
+          type="button"
+          onClick={() => { setOpen(false); setTitle(''); setTime(''); setLocation(''); }}
+          className="px-3 py-2 rounded-lg border border-cream-dark text-xs font-medium
+            text-sumi-muted hover:text-sumi hover:bg-cream transition-colors"
+        >
+          Done
+        </button>
+      </div>
     </form>
   );
 }

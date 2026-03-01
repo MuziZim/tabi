@@ -7,12 +7,29 @@ import type { Trip } from './lib/types';
 import { AuthScreen } from './components/AuthScreen';
 import { TripList } from './components/TripList';
 import { TripView } from './components/TripView';
+import { ToastProvider, useToast } from './components/Toast';
 
 export default function App() {
+  return (
+    <ToastProvider>
+      <AppContent />
+    </ToastProvider>
+  );
+}
+
+function AppContent() {
   const { user, loading: authLoading, signInWithMagicLink, signOut } = useAuth();
-  const { trips, loading: tripsLoading, createTrip, updateTrip, deleteTrip } = useTrips(user?.id);
+  const { trips, loading: tripsLoading, error: tripsError, createTrip, updateTrip, deleteTrip } = useTrips(user?.id);
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
+  const { showToast } = useToast();
+
+  // Show trip loading errors
+  useEffect(() => {
+    if (tripsError) {
+      showToast(tripsError, 'error');
+    }
+  }, [tripsError, showToast]);
 
   // Flush offline mutation queue when connectivity returns
   useEffect(() => {
@@ -20,11 +37,14 @@ export default function App() {
       if (online) {
         const { flushed, failed } = await flushMutationQueue(supabase as never);
         if (flushed > 0) {
-          console.log(`Synced ${flushed} offline change(s)${failed > 0 ? `, ${failed} failed` : ''}`);
+          showToast(
+            `Synced ${flushed} offline change(s)${failed > 0 ? `, ${failed} failed` : ''}`,
+            failed > 0 ? 'error' : 'success'
+          );
         }
       }
     });
-  }, []);
+  }, [showToast]);
 
   // Load selected trip details
   useEffect(() => {

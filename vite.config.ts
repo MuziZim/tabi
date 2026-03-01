@@ -11,7 +11,7 @@ export default defineConfig({
       manifest: {
         name: '旅 Tabi — Journey Planner',
         short_name: 'Tabi',
-        description: 'Your travel companion for Japan',
+        description: 'Your journey companion — plan trips with ease',
         theme_color: '#3F3A8C',
         background_color: '#FAF7F2',
         display: 'standalone',

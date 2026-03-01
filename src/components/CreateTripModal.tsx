@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { X } from 'lucide-react';
 import { COMMON_CURRENCIES } from '../lib/types';
 
@@ -18,25 +18,47 @@ const EMOJI_OPTIONS = ['✈️', '🗾', '⛩️', '🏯', '🌸', '🎌', '🗻
 
 export function CreateTripModal({ onClose, onCreate }: CreateTripModalProps) {
   const [name, setName] = useState('');
-  const [destination, setDestination] = useState('Japan');
+  const [destination, setDestination] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [emoji, setEmoji] = useState('⛩️');
   const [currency, setCurrency] = useState('JPY');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Escape key to close
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setError('');
+
+    // Validate dates
+    if (endDate < startDate) {
+      setError('End date must be on or after start date.');
+      return;
+    }
+
     setLoading(true);
-    await onCreate({
-      name,
-      destination: destination || undefined,
-      start_date: startDate,
-      end_date: endDate,
-      cover_emoji: emoji,
-      currency,
-    });
-    setLoading(false);
+    try {
+      await onCreate({
+        name,
+        destination: destination || undefined,
+        start_date: startDate,
+        end_date: endDate,
+        cover_emoji: emoji,
+        currency,
+      });
+    } catch {
+      setError('Failed to create trip. Please try again.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -115,7 +137,13 @@ export function CreateTripModal({ onClose, onCreate }: CreateTripModalProps) {
               <input
                 type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  // Auto-clear end date if it's now before start date
+                  if (endDate && e.target.value > endDate) {
+                    setEndDate('');
+                  }
+                }}
                 required
                 className="mt-1.5 w-full px-4 py-2.5 rounded-xl border border-cream-dark bg-cream/50
                   text-sumi text-sm focus:outline-none focus:ring-2 focus:ring-indigo/20 focus:border-indigo"
@@ -134,6 +162,10 @@ export function CreateTripModal({ onClose, onCreate }: CreateTripModalProps) {
               />
             </label>
           </div>
+
+          {error && (
+            <p className="text-vermillion text-sm">{error}</p>
+          )}
 
           <button
             type="submit"

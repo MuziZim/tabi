@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { X, Trash2 } from 'lucide-react';
 import type { Trip } from '../lib/types';
 import { COMMON_CURRENCIES } from '../lib/types';
@@ -7,8 +7,10 @@ interface EditTripModalProps {
   trip: Trip;
   onClose: () => void;
   onUpdate: (tripId: string, updates: {
-    name: string;
+    name?: string;
     destination?: string;
+    start_date?: string;
+    end_date?: string;
     cover_emoji?: string;
     currency?: string;
   }) => Promise<void>;
@@ -20,22 +22,48 @@ const EMOJI_OPTIONS = ['✈️', '🗾', '⛩️', '🏯', '🌸', '🎌', '🗻
 export function EditTripModal({ trip, onClose, onUpdate, onDelete }: EditTripModalProps) {
   const [name, setName] = useState(trip.name);
   const [destination, setDestination] = useState(trip.destination || '');
+  const [startDate, setStartDate] = useState(trip.start_date);
+  const [endDate, setEndDate] = useState(trip.end_date);
   const [emoji, setEmoji] = useState(trip.cover_emoji);
   const [currency, setCurrency] = useState(trip.currency || 'JPY');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Escape key to close
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setError('');
+
+    if (endDate < startDate) {
+      setError('End date must be on or after start date.');
+      return;
+    }
+
     setLoading(true);
-    await onUpdate(trip.id, {
-      name,
-      destination: destination || undefined,
-      cover_emoji: emoji,
-      currency,
-    });
-    setLoading(false);
-    onClose();
+    try {
+      await onUpdate(trip.id, {
+        name,
+        destination: destination || undefined,
+        start_date: startDate,
+        end_date: endDate,
+        cover_emoji: emoji,
+        currency,
+      });
+      onClose();
+    } catch {
+      setError('Failed to save changes. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -44,9 +72,16 @@ export function EditTripModal({ trip, onClose, onUpdate, onDelete }: EditTripMod
       return;
     }
     setLoading(true);
-    await onDelete(trip.id);
-    setLoading(false);
-    onClose();
+    setError('');
+    try {
+      await onDelete(trip.id);
+      onClose();
+    } catch {
+      setError('Failed to delete trip. Please try again.');
+      setConfirmDelete(false);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -97,10 +132,46 @@ export function EditTripModal({ trip, onClose, onUpdate, onDelete }: EditTripMod
               type="text"
               value={destination}
               onChange={(e) => setDestination(e.target.value)}
+              placeholder="Japan"
               className="mt-1.5 w-full px-4 py-2.5 rounded-xl border border-cream-dark bg-cream/50
                 text-sumi text-sm focus:outline-none focus:ring-2 focus:ring-indigo/20 focus:border-indigo"
             />
           </label>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="text-xs font-medium text-sumi-light uppercase tracking-wider">Start date</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  if (endDate && e.target.value > endDate) {
+                    setEndDate('');
+                  }
+                }}
+                required
+                className="mt-1.5 w-full px-4 py-2.5 rounded-xl border border-cream-dark bg-cream/50
+                  text-sumi text-sm focus:outline-none focus:ring-2 focus:ring-indigo/20 focus:border-indigo"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-medium text-sumi-light uppercase tracking-wider">End date</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                required
+                min={startDate}
+                className="mt-1.5 w-full px-4 py-2.5 rounded-xl border border-cream-dark bg-cream/50
+                  text-sumi text-sm focus:outline-none focus:ring-2 focus:ring-indigo/20 focus:border-indigo"
+              />
+            </label>
+          </div>
+
+          <p className="text-[10px] text-sumi-muted">
+            Changing dates updates the trip header. Existing day entries are not affected.
+          </p>
 
           <label className="block">
             <span className="text-xs font-medium text-sumi-light uppercase tracking-wider">Currency</span>
@@ -116,14 +187,18 @@ export function EditTripModal({ trip, onClose, onUpdate, onDelete }: EditTripMod
             </select>
           </label>
 
+          {error && (
+            <p className="text-vermillion text-sm">{error}</p>
+          )}
+
           <div className="flex gap-2 pt-2">
             <button
               type="submit"
-              disabled={loading || !name}
+              disabled={loading || !name || !startDate || !endDate}
               className="flex-1 py-3 px-4 rounded-xl bg-indigo text-white font-medium text-sm
                 hover:bg-indigo-dark transition-colors disabled:opacity-50"
             >
-              {loading ? 'Saving...' : 'Save Changes'}
+              {loading && !confirmDelete ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         </form>
@@ -141,7 +216,11 @@ export function EditTripModal({ trip, onClose, onUpdate, onDelete }: EditTripMod
           >
             <span className="flex items-center justify-center gap-2">
               <Trash2 size={14} />
-              {confirmDelete ? 'Tap again to permanently delete' : 'Delete trip'}
+              {loading && confirmDelete
+                ? 'Deleting...'
+                : confirmDelete
+                  ? 'Tap again to permanently delete'
+                  : 'Delete trip'}
             </span>
           </button>
           {confirmDelete && (
