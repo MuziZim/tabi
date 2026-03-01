@@ -14,11 +14,11 @@ import {
 } from '@dnd-kit/sortable';
 import {
   ArrowLeft, ChevronLeft, ChevronRight, Calendar,
-  WifiOff, UserPlus
+  WifiOff, Users, Pencil, Check, X
 } from 'lucide-react';
 import type { Trip, TripDay, ItemCategory } from '../lib/types';
 import { useTripDays, useItems } from '../hooks/useTrip';
-import { formatDate, formatDateLong, getDayNumber, formatCurrency, reorderArray } from '../lib/utils';
+import { formatDate, formatDateLong, getDayNumber, formatCurrency, getCategoryEmoji, reorderArray } from '../lib/utils';
 import { isOnline } from '../lib/offline';
 import { ItemCard } from './ItemCard';
 import { QuickAdd } from './QuickAdd';
@@ -30,7 +30,7 @@ interface TripViewProps {
 }
 
 export function TripView({ trip, onBack }: TripViewProps) {
-  const { days, loading: daysLoading } = useTripDays(trip.id);
+  const { days, loading: daysLoading, updateDay } = useTripDays(trip.id);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [online, setOnline] = useState(isOnline());
   const [showShare, setShowShare] = useState(false);
@@ -79,9 +79,9 @@ export function TripView({ trip, onBack }: TripViewProps) {
               <button
                 onClick={() => setShowShare(true)}
                 className="p-2 text-sumi-muted hover:text-indigo rounded-lg hover:bg-cream transition-colors"
-                title="Share trip"
+                title="Trip members"
               >
-                <UserPlus size={16} />
+                <Users size={16} />
               </button>
             </div>
           </div>
@@ -109,6 +109,7 @@ export function TripView({ trip, onBack }: TripViewProps) {
             day={currentDay}
             tripStart={trip.start_date}
             tripCurrency={trip.currency || 'JPY'}
+            onUpdateDay={updateDay}
           />
         ) : (
           <div className="text-center py-20 text-sumi-muted text-sm">
@@ -186,8 +187,26 @@ function DayNav({
 
 // ---- Day Content with Drag & Drop ----
 
-function DayContent({ day, tripStart, tripCurrency }: { day: TripDay; tripStart: string; tripCurrency: string }) {
+function DayContent({
+  day,
+  tripStart,
+  tripCurrency,
+  onUpdateDay,
+}: {
+  day: TripDay;
+  tripStart: string;
+  tripCurrency: string;
+  onUpdateDay: (dayId: string, updates: Partial<TripDay>) => Promise<void>;
+}) {
   const { items, loading, addItem, updateItem, deleteItem, reorderItems } = useItems(day.id);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(day.title || '');
+
+  // Sync title draft when day changes
+  useEffect(() => {
+    setTitleDraft(day.title || '');
+    setEditingTitle(false);
+  }, [day.id, day.title]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -225,6 +244,14 @@ function DayContent({ day, tripStart, tripCurrency }: { day: TripDay; tripStart:
     [addItem, tripCurrency]
   );
 
+  const handleTitleSave = async () => {
+    const newTitle = titleDraft.trim() || null;
+    if (newTitle !== day.title) {
+      await onUpdateDay(day.id, { title: newTitle });
+    }
+    setEditingTitle(false);
+  };
+
   // Daily cost summary
   const totalCost = useMemo(
     () => items.reduce((sum, item) => sum + (item.cost_estimate || 0), 0),
@@ -243,9 +270,46 @@ function DayContent({ day, tripStart, tripCurrency }: { day: TripDay; tripStart:
             Day {dayNum}
           </span>
         </div>
-        <h2 className="font-display text-xl text-sumi">
-          {day.title || formatDateLong(day.date)}
-        </h2>
+
+        {/* Editable day title */}
+        {editingTitle ? (
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={titleDraft}
+              onChange={(e) => setTitleDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleTitleSave();
+                if (e.key === 'Escape') { setTitleDraft(day.title || ''); setEditingTitle(false); }
+              }}
+              placeholder={formatDateLong(day.date)}
+              autoFocus
+              className="font-display text-xl text-sumi bg-transparent border-b-2 border-indigo
+                focus:outline-none flex-1 py-0"
+            />
+            <button onClick={handleTitleSave} className="p-1 text-bamboo hover:text-bamboo-light">
+              <Check size={18} />
+            </button>
+            <button onClick={() => { setTitleDraft(day.title || ''); setEditingTitle(false); }}
+              className="p-1 text-sumi-muted hover:text-sumi">
+              <X size={18} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 group/title">
+            <h2 className="font-display text-xl text-sumi">
+              {day.title || formatDateLong(day.date)}
+            </h2>
+            <button
+              onClick={() => setEditingTitle(true)}
+              className="p-1 text-sumi-muted/30 hover:text-sumi-muted sm:opacity-0 sm:group-hover/title:opacity-100 transition-opacity"
+              title="Edit day title"
+            >
+              <Pencil size={14} />
+            </button>
+          </div>
+        )}
+
         <p className="text-xs text-sumi-muted mt-0.5">{formatDateLong(day.date)}</p>
       </div>
 
@@ -284,7 +348,10 @@ function DayContent({ day, tripStart, tripCurrency }: { day: TripDay; tripStart:
           {items.length === 0 && (
             <div className="text-center py-10 text-sumi-muted/60">
               <div className="text-3xl mb-2">📍</div>
-              <p className="text-sm">No plans yet for this day</p>
+              <p className="text-sm mb-1">No plans yet for this day</p>
+              <p className="text-xs text-sumi-muted/40">
+                Tap "Add item" below to add {getCategoryEmoji('activity')} activities, {getCategoryEmoji('food')} meals, {getCategoryEmoji('transport')} transport, and more
+              </p>
             </div>
           )}
 

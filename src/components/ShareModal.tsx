@@ -1,5 +1,5 @@
-import { useState, useEffect, type FormEvent } from 'react';
-import { X, UserPlus, Users } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Users, Crown, UserCheck, Eye } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface ShareModalProps {
@@ -13,58 +13,58 @@ interface Member {
   email?: string;
 }
 
+const roleIcons: Record<string, typeof Crown> = {
+  owner: Crown,
+  editor: UserCheck,
+  viewer: Eye,
+};
+
 export function ShareModal({ tripId, onClose }: ShareModalProps) {
-  const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
-  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  // Escape key to close
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   useEffect(() => {
     loadMembers();
   }, [tripId]);
 
   const loadMembers = async () => {
-    const { data } = await supabase
-      .from('trip_members')
-      .select('user_id, role')
-      .eq('trip_id', tripId);
-    if (data) setMembers(data);
-  };
-
-  const handleInvite = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) return;
-
     setLoading(true);
-    setMessage('');
-
     try {
-      // Look up user by email — they must have signed in at least once
-      const { data: _users } = await supabase
+      // Fetch members with their user profiles
+      const { data } = await supabase
         .from('trip_members')
-        .select('user_id')
+        .select('user_id, role')
         .eq('trip_id', tripId);
 
-      // For simplicity, we'll use Supabase's admin user lookup via RPC
-      // In practice you'd create a Supabase Edge Function for this
-      // For now, share via the email invite approach
-
-      setMessage(
-        `To invite ${email}: ask them to sign into Tabi with that email first, ` +
-        `then you can add them as an editor. We'll add a proper invite flow soon!`
-      );
-
-      // TODO: Implement proper invite flow via Supabase Edge Function
-      // This would:
-      // 1. Look up user by email in auth.users
-      // 2. If found, add to trip_members
-      // 3. If not found, send invite email
-
+      if (data) {
+        // Try to enrich with emails from auth — this may not work
+        // depending on RLS, but we handle it gracefully
+        const enriched: Member[] = [];
+        for (const m of data) {
+          // Get current user's email if it matches
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user && user.id === m.user_id) {
+            enriched.push({ ...m, email: user.email || undefined });
+          } else {
+            enriched.push(m);
+          }
+        }
+        setMembers(enriched);
+      }
     } catch {
-      setMessage('Something went wrong. Please try again.');
+      // Silently fail — members list is non-critical
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
@@ -74,7 +74,7 @@ export function ShareModal({ tripId, onClose }: ShareModalProps) {
         <div className="flex items-center justify-between mb-6">
           <h2 className="font-display text-xl text-sumi flex items-center gap-2">
             <Users size={20} />
-            Share Trip
+            Trip Members
           </h2>
           <button onClick={onClose} className="p-1.5 text-sumi-muted hover:text-sumi rounded-lg hover:bg-cream">
             <X size={18} />
@@ -82,50 +82,53 @@ export function ShareModal({ tripId, onClose }: ShareModalProps) {
         </div>
 
         {/* Current members */}
-        <div className="mb-4">
+        <div className="mb-6">
           <span className="text-xs font-medium text-sumi-light uppercase tracking-wider">
             Members ({members.length})
           </span>
           <div className="mt-2 space-y-2">
-            {members.map((m) => (
-              <div key={m.user_id} className="flex items-center justify-between py-2 px-3 bg-cream/50 rounded-lg">
-                <span className="text-sm text-sumi truncate">{m.user_id.substring(0, 8)}...</span>
-                <span className="text-[10px] text-sumi-muted uppercase tracking-wider bg-cream px-2 py-0.5 rounded-full">
-                  {m.role}
-                </span>
+            {loading ? (
+              <div className="py-4 text-center">
+                <p className="text-sm text-sumi-muted animate-pulse">Loading members...</p>
               </div>
-            ))}
+            ) : members.length === 0 ? (
+              <div className="py-4 text-center">
+                <p className="text-sm text-sumi-muted">No members found</p>
+              </div>
+            ) : (
+              members.map((m) => {
+                const RoleIcon = roleIcons[m.role] || Eye;
+                return (
+                  <div key={m.user_id} className="flex items-center justify-between py-2.5 px-3 bg-cream/50 rounded-lg">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-7 h-7 rounded-full bg-indigo-faint flex items-center justify-center shrink-0">
+                        <span className="text-xs font-medium text-indigo">
+                          {(m.email || '?')[0].toUpperCase()}
+                        </span>
+                      </div>
+                      <span className="text-sm text-sumi truncate">
+                        {m.email || 'Team member'}
+                      </span>
+                    </div>
+                    <span className="flex items-center gap-1 text-[10px] text-sumi-muted uppercase tracking-wider bg-cream px-2 py-0.5 rounded-full shrink-0">
+                      <RoleIcon size={10} />
+                      {m.role}
+                    </span>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 
-        {/* Invite form */}
-        <form onSubmit={handleInvite} className="mt-4">
-          <span className="text-xs font-medium text-sumi-light uppercase tracking-wider">
-            Invite by email
-          </span>
-          <div className="flex gap-2 mt-1.5">
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="partner@example.com"
-              className="flex-1 px-3 py-2 rounded-lg border border-cream-dark bg-cream/30
-                text-sumi text-sm focus:outline-none focus:ring-2 focus:ring-indigo/20 focus:border-indigo"
-            />
-            <button
-              type="submit"
-              disabled={loading || !email}
-              className="px-4 py-2 bg-indigo text-white rounded-lg text-sm font-medium
-                hover:bg-indigo-dark transition-colors disabled:opacity-50"
-            >
-              <UserPlus size={16} />
-            </button>
-          </div>
-        </form>
-
-        {message && (
-          <p className="mt-3 text-xs text-sumi-muted bg-cream p-3 rounded-lg">{message}</p>
-        )}
+        {/* Coming soon notice */}
+        <div className="bg-cream rounded-xl p-4 text-center">
+          <p className="text-sm font-medium text-sumi mb-1">Invite members coming soon</p>
+          <p className="text-xs text-sumi-muted leading-relaxed">
+            We're working on the ability to invite travel companions by email.
+            For now, trips are private to the creator.
+          </p>
+        </div>
       </div>
     </div>
   );

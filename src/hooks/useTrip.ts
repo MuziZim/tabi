@@ -6,13 +6,19 @@ import type { Trip, TripDay, ItineraryItem, NewItineraryItem } from '../lib/type
 export function useTrips(userId: string | undefined) {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchTrips = useCallback(async () => {
     if (!userId) return;
-    const { data } = await supabase
+    setError(null);
+    const { data, error: fetchError } = await supabase
       .from('trips')
       .select('*')
       .order('start_date', { ascending: true });
+    if (fetchError) {
+      setError('Failed to load trips. Pull down to retry.');
+      console.error('fetchTrips error:', fetchError);
+    }
     if (data) setTrips(data);
     setLoading(false);
   }, [userId]);
@@ -44,6 +50,8 @@ export function useTrips(userId: string | undefined) {
   const updateTrip = async (tripId: string, updates: {
     name?: string;
     destination?: string;
+    start_date?: string;
+    end_date?: string;
     cover_emoji?: string;
     currency?: string;
   }) => {
@@ -66,7 +74,7 @@ export function useTrips(userId: string | undefined) {
     setTrips((prev) => prev.filter((t) => t.id !== tripId));
   };
 
-  return { trips, loading, createTrip, updateTrip, deleteTrip, refreshTrips: fetchTrips };
+  return { trips, loading, error, createTrip, updateTrip, deleteTrip, refreshTrips: fetchTrips };
 }
 
 export function useTripDays(tripId: string | undefined) {
@@ -84,12 +92,15 @@ export function useTripDays(tripId: string | undefined) {
     }
 
     // Fetch from server
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('trip_days')
       .select('*')
       .eq('trip_id', tripId)
       .order('date', { ascending: true });
 
+    if (error) {
+      console.error('fetchDays error:', error);
+    }
     if (data) {
       setDays(data);
       await cacheTripDays(tripId, data);
@@ -153,13 +164,16 @@ export function useItems(dayId: string | undefined) {
       setLoading(false);
     }
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('itinerary_items')
       .select('*')
       .eq('day_id', dayId)
       .order('sort_order', { ascending: true })
       .order('start_time', { ascending: true, nullsFirst: false });
 
+    if (error) {
+      console.error('fetchItems error:', error);
+    }
     if (data) {
       setItems(data);
       await cacheItems(dayId, data);
