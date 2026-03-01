@@ -62,6 +62,9 @@ export function useTrips(userId: string | undefined) {
       return null;
     }
 
+    // Avoid chaining `.select().single()` here: in some Supabase/RLS setups
+    // the insert succeeds but the immediate select fails, which surfaces a false
+    // "Failed to create trip" error in the modal.
     const { error } = await supabase
       .from('trips')
       .insert(tripPayload);
