@@ -62,17 +62,20 @@ export function useTrips(userId: string | undefined) {
       return null;
     }
 
-    const { data, error } = await supabase
+    // Avoid chaining `.select().single()` here: in some Supabase/RLS setups
+    // the insert succeeds but the immediate select fails, which surfaces a false
+    // "Failed to create trip" error in the modal.
+    const { error } = await supabase
       .from('trips')
-      .insert(tripPayload)
-      .select()
-      .single();
+      .insert(tripPayload);
+
     if (error) {
       console.error('createTrip error:', error);
       throw error;
     }
-    if (data) setTrips((prev) => [...prev, data]);
-    return data;
+
+    await fetchTrips();
+    return null;
   };
 
   const updateTrip = async (tripId: string, updates: {
