@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type",
+  "Access-Control-Allow-Headers": "authorization, content-type, x-api-key",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
 };
 
@@ -28,6 +28,9 @@ function err(message: string, status = 400): Response {
 function authenticate(req: Request): boolean {
   const apiKey = Deno.env.get("TABI_API_KEY");
   if (!apiKey) return false;
+  // Check x-api-key header first, then fall back to Authorization bearer
+  const custom = req.headers.get("x-api-key");
+  if (custom) return custom === apiKey;
   const header = req.headers.get("authorization") || "";
   const token = header.replace(/^Bearer\s+/i, "");
   return token === apiKey;
