@@ -50,21 +50,27 @@ export function useTrips(userId: string | undefined) {
   }) => {
     if (!userId) return null;
 
+    const timezone = trip.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Tokyo';
+    const tripPayload = { ...trip, timezone, created_by: userId };
+
     if (!isOnline()) {
       await queueMutation({
         type: 'insert',
         table: 'trips',
-        payload: { ...trip, created_by: userId },
+        payload: tripPayload,
       });
       return null;
     }
 
     const { data, error } = await supabase
       .from('trips')
-      .insert({ ...trip, created_by: userId })
+      .insert(tripPayload)
       .select()
       .single();
-    if (error) throw error;
+    if (error) {
+      console.error('createTrip error:', error);
+      throw error;
+    }
     if (data) setTrips((prev) => [...prev, data]);
     return data;
   };
