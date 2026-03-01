@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { formatErrorMessage } from '../lib/errors';
 import {
   cacheTripDays,
   getCachedTripDays,
@@ -71,7 +72,7 @@ export function useTrips(userId: string | undefined) {
 
     if (error) {
       console.error('createTrip error:', error);
-      throw error;
+      throw new Error(formatErrorMessage(error));
     }
 
     await fetchTrips();
