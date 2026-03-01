@@ -1,0 +1,623 @@
+openapi: 3.1.0
+info:
+  title: Tabi Travel Itinerary API
+  version: 1.0.0
+  description: >
+    REST API for the Tabi travel itinerary app. Manage trips, days, and
+    itinerary items. Designed for use with ChatGPT Custom GPT Actions and
+    other HTTP clients.
+
+servers:
+  - url: https://YOUR_PROJECT_REF.supabase.co/functions/v1
+    description: Supabase Edge Functions
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Use your TABI_API_KEY as the Bearer token
+
+  schemas:
+    Trip:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Japan Spring 2025
+        destination:
+          type: string
+          example: Japan
+        start_date:
+          type: string
+          format: date
+          example: "2025-04-12"
+        end_date:
+          type: string
+          format: date
+          example: "2025-04-26"
+        timezone:
+          type: string
+          example: Asia/Tokyo
+        currency:
+          type: string
+          example: JPY
+        cover_emoji:
+          type: string
+          example: "🇯🇵"
+
+    Day:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        trip_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        title:
+          type: string
+        notes:
+          type: string
+        day_number:
+          type: integer
+          description: 1-based day number within the trip
+
+    Item:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        day_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          example: Lunch at Ichiran
+        category:
+          type: string
+          enum: [transport, food, activity, stay, free_time]
+          example: food
+        start_time:
+          type: string
+          example: "12:30"
+        end_time:
+          type: string
+          example: "13:30"
+        location_name:
+          type: string
+          example: Ichiran Shibuya
+        location_address:
+          type: string
+        notes:
+          type: string
+        cost_estimate:
+          type: number
+          example: 1200
+        booking_ref:
+          type: string
+        url:
+          type: string
+        status:
+          type: string
+          enum: [planned, confirmed, cancelled]
+        sort_order:
+          type: integer
+        currency:
+          type: string
+
+    SuccessResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          const: true
+        data:
+          type: object
+
+    ErrorResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          const: false
+        error:
+          type: string
+
+paths:
+  /api/trips:
+    get:
+      operationId: listTrips
+      summary: List all trips or get a specific trip
+      description: Returns all trips. Optionally pass trip_id to get a single trip.
+      parameters:
+        - name: trip_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Optional trip ID to fetch a specific trip
+      responses:
+        "200":
+          description: Trip(s) returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  data:
+                    oneOf:
+                      - type: array
+                        items:
+                          $ref: "#/components/schemas/Trip"
+                      - $ref: "#/components/schemas/Trip"
+
+  /api/trips/{trip_id}/overview:
+    get:
+      operationId: getTripOverview
+      summary: Get full trip overview with all days and items
+      description: >
+        Returns the trip details along with all days and their itinerary items.
+        Use this to get a complete picture of the trip.
+      parameters:
+        - name: trip_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Full trip overview
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      trip:
+                        $ref: "#/components/schemas/Trip"
+                      days:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            day_number:
+                              type: integer
+                            date:
+                              type: string
+                              format: date
+                            title:
+                              type: string
+                            notes:
+                              type: string
+                            items:
+                              type: array
+                              items:
+                                $ref: "#/components/schemas/Item"
+
+  /api/trips/{trip_id}/days:
+    get:
+      operationId: listDays
+      summary: List all days for a trip
+      description: Returns all days for the specified trip with day numbers.
+      parameters:
+        - name: trip_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Days returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Day"
+
+  /api/trips/{trip_id}/days/{day_number}:
+    get:
+      operationId: getDay
+      summary: Get a specific day with its items
+      description: >
+        Get details for a specific day by its 1-based day number, including
+        all itinerary items. You can also use ?date=YYYY-MM-DD instead.
+      parameters:
+        - name: trip_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: day_number
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Alternative to day_number — look up by date
+      responses:
+        "200":
+          description: Day with items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  data:
+                    allOf:
+                      - $ref: "#/components/schemas/Day"
+                      - type: object
+                        properties:
+                          items:
+                            type: array
+                            items:
+                              $ref: "#/components/schemas/Item"
+
+    patch:
+      operationId: updateDay
+      summary: Update a day's title or notes
+      description: Change the title or notes for a specific day.
+      parameters:
+        - name: trip_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: day_number
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  example: Tokyo Exploration
+                notes:
+                  type: string
+                  example: Focus on Shibuya and Shinjuku
+      responses:
+        "200":
+          description: Day updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /api/trips/{trip_id}/items:
+    post:
+      operationId: addItem
+      summary: Add a new itinerary item to a day
+      description: >
+        Add a new item to a specific day. Specify the day using either
+        day_number (1-based) or date (YYYY-MM-DD). The title and category are
+        required; all other fields are optional.
+      parameters:
+        - name: trip_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                day_number:
+                  type: integer
+                  example: 3
+                  description: 1-based day number (provide this OR date)
+                date:
+                  type: string
+                  format: date
+                  example: "2025-04-15"
+                  description: Date in YYYY-MM-DD (provide this OR day_number)
+                title:
+                  type: string
+                  example: Lunch at Ichiran
+                category:
+                  type: string
+                  enum: [transport, food, activity, stay, free_time]
+                  default: activity
+                  example: food
+                start_time:
+                  type: string
+                  example: "12:30"
+                end_time:
+                  type: string
+                  example: "13:30"
+                location_name:
+                  type: string
+                  example: Ichiran Shibuya
+                location_address:
+                  type: string
+                notes:
+                  type: string
+                cost_estimate:
+                  type: number
+                  example: 1200
+                booking_ref:
+                  type: string
+                url:
+                  type: string
+      responses:
+        "201":
+          description: Item created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  data:
+                    $ref: "#/components/schemas/Item"
+
+  /api/trips/{trip_id}/search:
+    get:
+      operationId: searchItems
+      summary: Search itinerary items across the trip
+      description: >
+        Search for items by text query, category, or status. All parameters
+        are optional — omit all to list every item in the trip.
+      parameters:
+        - name: trip_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Text search across title, notes, location, booking ref
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [transport, food, activity, stay, free_time]
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [planned, confirmed, cancelled]
+      responses:
+        "200":
+          description: Matching items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "#/components/schemas/Item"
+                        - type: object
+                          properties:
+                            day_date:
+                              type: string
+                              format: date
+                            day_title:
+                              type: string
+
+  /api/items/{item_id}:
+    patch:
+      operationId: updateItem
+      summary: Update an existing itinerary item
+      description: >
+        Update one or more fields on an item. Only include the fields you
+        want to change.
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                category:
+                  type: string
+                  enum: [transport, food, activity, stay, free_time]
+                start_time:
+                  type: string
+                end_time:
+                  type: string
+                location_name:
+                  type: string
+                location_address:
+                  type: string
+                notes:
+                  type: string
+                cost_estimate:
+                  type: number
+                booking_ref:
+                  type: string
+                url:
+                  type: string
+                status:
+                  type: string
+                  enum: [planned, confirmed, cancelled]
+      responses:
+        "200":
+          description: Item updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  data:
+                    $ref: "#/components/schemas/Item"
+
+    delete:
+      operationId: deleteItem
+      summary: Delete an itinerary item
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Item deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      deleted:
+                        type: boolean
+                      title:
+                        type: string
+
+  /api/items/{item_id}/move:
+    post:
+      operationId: moveItem
+      summary: Move an item to a different day
+      description: >
+        Move an itinerary item to a different day within the same trip.
+        Specify the target using target_day_number or target_date.
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [trip_id]
+              properties:
+                trip_id:
+                  type: string
+                  format: uuid
+                target_day_number:
+                  type: integer
+                  example: 5
+                  description: 1-based day number (provide this OR target_date)
+                target_date:
+                  type: string
+                  format: date
+                  description: Target date (provide this OR target_day_number)
+      responses:
+        "200":
+          description: Item moved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  data:
+                    $ref: "#/components/schemas/Item"
+
+  /api/items/reorder:
+    patch:
+      operationId: reorderItems
+      summary: Reorder items within a day
+      description: >
+        Set the order of items by providing the item IDs in the desired
+        sequence. All items should belong to the same day.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [item_ids]
+              properties:
+                item_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  description: Item IDs in the desired display order
+      responses:
+        "200":
+          description: Items reordered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      reordered:
+                        type: integer

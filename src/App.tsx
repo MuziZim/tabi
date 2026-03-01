@@ -48,6 +48,8 @@ function AppContent() {
 
   // Load selected trip details
   useEffect(() => {
+    let cancelled = false;
+
     if (!selectedTripId) {
       setSelectedTrip(null);
       return;
@@ -63,9 +65,15 @@ function AppContent() {
         .eq('id', selectedTripId)
         .single()
         .then(({ data }) => {
-          if (data) setSelectedTrip(data);
+          if (!cancelled && data && data.id === selectedTripId) {
+            setSelectedTrip(data);
+          }
         });
     }
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedTripId, trips]);
 
   // Loading state

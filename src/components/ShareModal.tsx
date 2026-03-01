@@ -32,40 +32,40 @@ export function ShareModal({ tripId, onClose }: ShareModalProps) {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  useEffect(() => {
-    loadMembers();
-  }, [tripId]);
-
   const loadMembers = async () => {
     setLoading(true);
     try {
-      // Fetch members with their user profiles
-      const { data } = await supabase
-        .from('trip_members')
-        .select('user_id, role')
-        .eq('trip_id', tripId);
+      const [{ data: membersData, error: membersError }, { data: authData }] = await Promise.all([
+        supabase
+          .from('trip_members')
+          .select('user_id, role')
+          .eq('trip_id', tripId),
+        supabase.auth.getUser(),
+      ]);
 
-      if (data) {
-        // Try to enrich with emails from auth — this may not work
-        // depending on RLS, but we handle it gracefully
-        const enriched: Member[] = [];
-        for (const m of data) {
-          // Get current user's email if it matches
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user && user.id === m.user_id) {
-            enriched.push({ ...m, email: user.email || undefined });
-          } else {
-            enriched.push(m);
-          }
-        }
-        setMembers(enriched);
+      if (membersError) {
+        throw membersError;
       }
-    } catch {
-      // Silently fail — members list is non-critical
+
+      const currentUser = authData.user;
+      setMembers(
+        (membersData || []).map((member) =>
+          currentUser && currentUser.id === member.user_id
+            ? { ...member, email: currentUser.email || undefined }
+            : member
+        )
+      );
+    } catch (error) {
+      console.error('loadMembers error:', error);
+      setMembers([]);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadMembers();
+  }, [tripId]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
