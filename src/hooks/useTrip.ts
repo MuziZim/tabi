@@ -1,6 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { cacheTripDays, getCachedTripDays, cacheItems, getCachedItems } from '../lib/offline';
+import {
+  cacheTripDays,
+  getCachedTripDays,
+  cacheItems,
+  getCachedItems,
+  isOnline,
+  queueMutation,
+} from '../lib/offline';
 import type { Trip, TripDay, ItineraryItem, NewItineraryItem } from '../lib/types';
 
 export function useTrips(userId: string | undefined) {
@@ -9,7 +16,12 @@ export function useTrips(userId: string | undefined) {
   const [error, setError] = useState<string | null>(null);
 
   const fetchTrips = useCallback(async () => {
-    if (!userId) return;
+    if (!userId) {
+      setTrips([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     setError(null);
     const { data, error: fetchError } = await supabase
       .from('trips')
@@ -37,6 +49,16 @@ export function useTrips(userId: string | undefined) {
     currency?: string;
   }) => {
     if (!userId) return null;
+
+    if (!isOnline()) {
+      await queueMutation({
+        type: 'insert',
+        table: 'trips',
+        payload: { ...trip, created_by: userId },
+      });
+      return null;
+    }
+
     const { data, error } = await supabase
       .from('trips')
       .insert({ ...trip, created_by: userId })
@@ -55,6 +77,18 @@ export function useTrips(userId: string | undefined) {
     cover_emoji?: string;
     currency?: string;
   }) => {
+    if (!isOnline()) {
+      await queueMutation({
+        type: 'update',
+        table: 'trips',
+        payload: { id: tripId, ...updates },
+      });
+      setTrips((prev) =>
+        prev.map((t) => (t.id === tripId ? { ...t, ...updates } : t))
+      );
+      return;
+    }
+
     const { error } = await supabase
       .from('trips')
       .update(updates)
@@ -66,6 +100,16 @@ export function useTrips(userId: string | undefined) {
   };
 
   const deleteTrip = async (tripId: string) => {
+    if (!isOnline()) {
+      await queueMutation({
+        type: 'delete',
+        table: 'trips',
+        payload: { id: tripId },
+      });
+      setTrips((prev) => prev.filter((t) => t.id !== tripId));
+      return;
+    }
+
     const { error } = await supabase
       .from('trips')
       .delete()
@@ -82,7 +126,12 @@ export function useTripDays(tripId: string | undefined) {
   const [loading, setLoading] = useState(true);
 
   const fetchDays = useCallback(async () => {
-    if (!tripId) return;
+    if (!tripId) {
+      setDays([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
 
     // Try cache first
     const cached = await getCachedTripDays(tripId);
@@ -138,6 +187,18 @@ export function useTripDays(tripId: string | undefined) {
   }, [tripId, fetchDays]);
 
   const updateDay = async (dayId: string, updates: Partial<TripDay>) => {
+    if (!isOnline()) {
+      await queueMutation({
+        type: 'update',
+        table: 'trip_days',
+        payload: { id: dayId, ...updates },
+      });
+      setDays((prev) =>
+        prev.map((d) => (d.id === dayId ? { ...d, ...updates } : d))
+      );
+      return;
+    }
+
     const { error } = await supabase
       .from('trip_days')
       .update(updates)
@@ -156,7 +217,12 @@ export function useItems(dayId: string | undefined) {
   const [loading, setLoading] = useState(true);
 
   const fetchItems = useCallback(async () => {
-    if (!dayId) return;
+    if (!dayId) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
 
     const cached = await getCachedItems(dayId);
     if (cached) {
@@ -222,6 +288,15 @@ export function useItems(dayId: string | undefined) {
       ...item,
     };
 
+    if (!isOnline()) {
+      await queueMutation({
+        type: 'insert',
+        table: 'itinerary_items',
+        payload: newItem,
+      });
+      return null;
+    }
+
     const { data, error } = await supabase
       .from('itinerary_items')
       .insert(newItem)
@@ -234,6 +309,18 @@ export function useItems(dayId: string | undefined) {
   };
 
   const updateItem = async (itemId: string, updates: Partial<ItineraryItem>) => {
+    if (!isOnline()) {
+      await queueMutation({
+        type: 'update',
+        table: 'itinerary_items',
+        payload: { id: itemId, ...updates },
+      });
+      setItems((prev) =>
+        prev.map((i) => (i.id === itemId ? { ...i, ...updates } : i))
+      );
+      return;
+    }
+
     const { error } = await supabase
       .from('itinerary_items')
       .update(updates)
@@ -245,6 +332,16 @@ export function useItems(dayId: string | undefined) {
   };
 
   const deleteItem = async (itemId: string) => {
+    if (!isOnline()) {
+      await queueMutation({
+        type: 'delete',
+        table: 'itinerary_items',
+        payload: { id: itemId },
+      });
+      setItems((prev) => prev.filter((i) => i.id !== itemId));
+      return;
+    }
+
     const { error } = await supabase
       .from('itinerary_items')
       .delete()
@@ -261,6 +358,15 @@ export function useItems(dayId: string | undefined) {
 
     // Optimistic update
     setItems(reordered.map((item, index) => ({ ...item, sort_order: index })));
+
+    if (!isOnline()) {
+      await queueMutation({
+        type: 'reorder',
+        table: 'itinerary_items',
+        payload: { items: updates },
+      });
+      return;
+    }
 
     // Persist
     for (const update of updates) {
