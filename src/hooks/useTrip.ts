@@ -37,12 +37,29 @@ export function useTrips(userId: string | undefined) {
     currency?: string;
   }) => {
     if (!userId) return null;
-    const { data, error } = await supabase
+
+    // Insert without .select().single() — the trips SELECT RLS policy
+    // depends on trip_members, which is populated by an AFTER INSERT
+    // trigger. PostgREST's RETURNING may not see the trigger's side
+    // effects, causing .single() to error on an empty result.
+    const { error: insertError } = await supabase
       .from('trips')
-      .insert({ ...trip, created_by: userId })
-      .select()
+      .insert({ ...trip, created_by: userId });
+    if (insertError) throw insertError;
+
+    // Fetch the newly created trip in a separate query, which runs
+    // after the trigger has committed the trip_members row.
+    const { data, error: fetchError } = await supabase
+      .from('trips')
+      .select('*')
+      .eq('created_by', userId)
+      .eq('name', trip.name)
+      .eq('start_date', trip.start_date)
+      .eq('end_date', trip.end_date)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single();
-    if (error) throw error;
+    if (fetchError) throw fetchError;
     if (data) setTrips((prev) => [...prev, data]);
     return data;
   };

@@ -55,8 +55,10 @@ export function CreateTripModal({ onClose, onCreate }: CreateTripModalProps) {
         cover_emoji: emoji,
         currency,
       });
-    } catch {
-      setError('Failed to create trip. Please try again.');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Something went wrong';
+      console.error('Create trip error:', err);
+      setError(`Failed to create trip: ${message}`);
       setLoading(false);
     }
   };
