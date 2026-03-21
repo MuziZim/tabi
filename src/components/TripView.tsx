@@ -23,6 +23,7 @@ import { isOnline } from '../lib/offline';
 import { ItemCard } from './ItemCard';
 import { QuickAdd } from './QuickAdd';
 import { ShareModal } from './ShareModal';
+import { ChatPanel } from './ChatPanel';
 
 interface TripViewProps {
   trip: Trip;
@@ -124,6 +125,8 @@ export function TripView({ trip, onBack }: TripViewProps) {
           onClose={() => setShowShare(false)}
         />
       )}
+
+      <ChatPanel tripId={trip.id} tripName={trip.name} />
     </div>
   );
 }
